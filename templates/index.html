@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 비디오 생성기</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            min-height: calc(100vh - 40px);
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            flex: 1;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            display: none;
+        }
+
+        .status.processing {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            color: #1976d2;
+        }
+
+        .status.completed {
+            background: #e8f5e8;
+            border: 2px solid #4caf50;
+            color: #2e7d32;
+        }
+
+        .status.failed {
+            background: #ffebee;
+            border: 2px solid #f44336;
+            color: #c62828;
+        }
+
+        .status h3 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .status p {
+            margin-bottom: 5px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #4caf50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .example-prompts {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .example-prompts h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .example-prompt {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border: 1px solid #e1e5e9;
+            transition: all 0.3s ease;
+        }
+
+        .example-prompt:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        }
+
+        .example-prompt p {
+            color: #666;
+            font-size: 0.9em;
+            margin: 0;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .chat-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .chat-header h3 {
+            color: #333;
+            font-size: 1.3em;
+            margin-bottom: 5px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .chat-header p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            max-height: 400px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 15px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.assistant {
+            background: #e9ecef;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 20px;
+            font-size: 14px;
+            resize: none;
+            height: 40px;
+            font-family: inherit;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .chat-send-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .chat-send-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .chat-send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .use-prompt-btn {
+            background: linear-gradient(135deg, #4caf50, #45a049);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .use-prompt-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(76, 175, 80, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .chat-container {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="container">
+            <div class="header">
+                <h1>AI 비디오 생성기</h1>
+                <p>텍스트를 입력하고 AI가 비디오를 생성해드립니다</p>
+            </div>
+
+            <form id="videoForm">
+                <div class="form-group">
+                    <label for="prompt">비디오 설명을 입력하세요:</label>
+                    <textarea id="prompt" name="prompt" placeholder="예: 고급 레스토랑에서 사람이 팔과 다리가 있는 물고기 같은 생물을 간식으로 먹고 있는 모습. 다른 우아하게 차려입은 손님들은 전혀 신경 쓰지 않고 자신의 접시에서 동일한 물고기 괴물을 차분히 먹고 있다. [Pan right], [Zoom in]" required></textarea>
+                </div>
+
+                <button type="submit" class="button" id="generateBtn">
+                    <span id="btnText">비디오 생성하기</span>
+                    <span id="btnSpinner" class="loading-spinner" style="display: none;"></span>
+                </button>
+            </form>
+
+            <div id="status" class="status"></div>
+
+            <div class="example-prompts">
+                <h3>예시 프롬프트</h3>
+                <div class="example-prompt" onclick="setPrompt('고급 레스토랑에서 사람이 팔과 다리가 있는 물고기 같은 생물을 간식으로 먹고 있는 모습. 다른 우아하게 차려입은 손님들은 전혀 신경 쓰지 않고 자신의 접시에서 동일한 물고기 괴물을 차분히 먹고 있다. [Pan right], [Zoom in]')">
+                    <p><strong>레스토랑 장면:</strong> 고급 레스토랑에서 사람이 팔과 다리가 있는 물고기 같은 생물을 간식으로 먹고 있는 모습...</p>
+                </div>
+                <div class="example-prompt" onclick="setPrompt('아름다운 자연 풍경에서 태양이 지는 황금빛 하늘, 나비들이 꽃 위에서 춤추는 모습. [Slow motion], [Close up]')">
+                    <p><strong>자연 풍경:</strong> 아름다운 자연 풍경에서 태양이 지는 황금빛 하늘, 나비들이 꽃 위에서 춤추는 모습...</p>
+                </div>
+                <div class="example-prompt" onclick="setPrompt('미래적인 도시에서 네온 불빛이 반짝이는 거리, 사람들이 홀로그램을 보고 있는 모습. [Night scene], [Cyberpunk style]')">
+                    <p><strong>미래 도시:</strong> 미래적인 도시에서 네온 불빛이 반짝이는 거리, 사람들이 홀로그램을 보고 있는 모습...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-header">
+                <h3>🤖 Gemini AI</h3>
+                <p>프롬프트 추천받기</p>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="message assistant">
+                    안녕하세요! 원하는 비디오 장면을 설명해주시면 최적화된 프롬프트를 추천해드릴게요. 🎬
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" id="chatInput" placeholder="원하는 장면을 설명해주세요..." maxlength="200">
+                <button class="chat-send-btn" id="chatSendBtn">전송</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTaskId = null;
+        let statusCheckInterval = null;
+
+        function setPrompt(text) {
+            document.getElementById('prompt').value = text;
+        }
+
+        // 채팅 관련 함수들
+        function addMessage(message, isUser = false) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+            messageDiv.textContent = message;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addPromptSuggestion(prompt) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            
+            const promptText = document.createElement('div');
+            promptText.textContent = prompt;
+            promptText.style.marginBottom = '10px';
+            
+            const useButton = document.createElement('button');
+            useButton.className = 'use-prompt-btn';
+            useButton.textContent = '이 프롬프트 사용하기';
+            useButton.onclick = () => setPrompt(prompt);
+            
+            messageDiv.appendChild(promptText);
+            messageDiv.appendChild(useButton);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const chatInput = document.getElementById('chatInput');
+            const chatSendBtn = document.getElementById('chatSendBtn');
+            const message = chatInput.value.trim();
+            
+            if (!message) return;
+            
+            // 사용자 메시지 추가
+            addMessage(message, true);
+            chatInput.value = '';
+            chatSendBtn.disabled = true;
+            chatSendBtn.textContent = '전송 중...';
+            
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    addMessage('오류가 발생했습니다: ' + data.error);
+                } else {
+                    addPromptSuggestion(data.response);
+                }
+            } catch (error) {
+                console.error('채팅 오류:', error);
+                addMessage('채팅 중 오류가 발생했습니다.');
+            } finally {
+                chatSendBtn.disabled = false;
+                chatSendBtn.textContent = '전송';
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = `
+                <h3>${type === 'processing' ? '처리 중...' : type === 'completed' ? '완료!' : '오류 발생'}</h3>
+                <p>${message}</p>
+                ${type === 'processing' ? '<div class="progress-bar"><div class="progress-fill"></div></div>' : ''}
+            `;
+            statusDiv.style.display = 'block';
+        }
+
+        function hideStatus() {
+            document.getElementById('status').style.display = 'none';
+        }
+
+        function updateButtonState(loading) {
+            const btn = document.getElementById('generateBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+            
+            if (loading) {
+                btn.disabled = true;
+                btnText.textContent = '생성 중...';
+                btnSpinner.style.display = 'inline-block';
+            } else {
+                btn.disabled = false;
+                btnText.textContent = '비디오 생성하기';
+                btnSpinner.style.display = 'none';
+            }
+        }
+
+        function checkStatus(taskId) {
+            fetch(`/status/${taskId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showStatus(data.error, 'failed');
+                        updateButtonState(false);
+                        if (statusCheckInterval) {
+                            clearInterval(statusCheckInterval);
+                        }
+                        return;
+                    }
+
+                    const status = data.status;
+                    if (status === 'starting' || status === 'submitting') {
+                        showStatus('작업을 시작하고 있습니다...', 'processing');
+                    } else if (status === 'processing') {
+                        showStatus('비디오를 생성하고 있습니다. 잠시만 기다려주세요...', 'processing');
+                    } else if (status === 'completed') {
+                        showStatus(`
+                            비디오 생성이 완료되었습니다!<br>
+                            <a href="/download/${taskId}" class="download-btn">비디오 다운로드</a>
+                        `, 'completed');
+                        updateButtonState(false);
+                        if (statusCheckInterval) {
+                            clearInterval(statusCheckInterval);
+                        }
+                    } else if (status === 'failed') {
+                        showStatus('비디오 생성에 실패했습니다. 다시 시도해주세요.', 'failed');
+                        updateButtonState(false);
+                        if (statusCheckInterval) {
+                            clearInterval(statusCheckInterval);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('상태 확인 오류:', error);
+                    showStatus('상태 확인 중 오류가 발생했습니다.', 'failed');
+                    updateButtonState(false);
+                    if (statusCheckInterval) {
+                        clearInterval(statusCheckInterval);
+                    }
+                });
+        }
+
+        // 채팅 이벤트 리스너
+        document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+        
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+
+        document.getElementById('videoForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const prompt = document.getElementById('prompt').value.trim();
+            if (!prompt) {
+                alert('프롬프트를 입력해주세요.');
+                return;
+            }
+
+            updateButtonState(true);
+            hideStatus();
+
+            fetch('/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt: prompt })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showStatus(data.error, 'failed');
+                    updateButtonState(false);
+                    return;
+                }
+
+                currentTaskId = data.task_id;
+                showStatus('비디오 생성이 시작되었습니다...', 'processing');
+                
+                // 상태 확인 시작
+                statusCheckInterval = setInterval(() => {
+                    checkStatus(currentTaskId);
+                }, 5000); // 5초마다 상태 확인
+                
+                // 즉시 첫 번째 상태 확인
+                checkStatus(currentTaskId);
+            })
+            .catch(error => {
+                console.error('요청 오류:', error);
+                showStatus('요청 중 오류가 발생했습니다.', 'failed');
+                updateButtonState(false);
+            });
+        });
+    </script>
+</body>
+</html> 
