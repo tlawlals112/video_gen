@@ -32,7 +32,7 @@ export GEMINI_API_KEY="your_gemini_api_key_here"
 ### 3. 앱 실행
 
 ```bash
-python app.py
+python3 app_genvid_hailuoai.py
 ```
 
 ### 4. 웹 브라우저에서 접속
