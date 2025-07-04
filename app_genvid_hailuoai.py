@@ -7,6 +7,7 @@ from datetime import datetime
 import threading
 import uuid
 import google.generativeai as genai
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
@@ -24,19 +25,37 @@ model = "MiniMax-Hailuo-02"
 duration = 6
 resolution = "1080P"
 
+# 파일 업로드 설정
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 # 작업 상태를 저장할 딕셔너리
 tasks = {}
 
-def invoke_video_generation(prompt: str) -> str:
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def invoke_video_generation(prompt: str, mode: str = 'text', image_url: str = None) -> str:
     print("-----------------비디오 생성 작업 제출 중-----------------")
     url = "https://api.minimax.io/v1/video_generation"
-    payload = json.dumps({
-        "prompt": prompt,
+    
+    payload = {
         "model": model,
         "duration": duration,
         "resolution": resolution,
         "prompt_optimizer": True
-    })
+    }
+    
+    if mode == 'text':
+        payload["prompt"] = prompt
+    elif mode == 'image':
+        payload["prompt"] = prompt
+        payload["image_url"] = image_url
+    
+    payload = json.dumps(payload)
     headers = {
         'authorization': 'Bearer ' + api_key,
         'content-type': 'application/json',
@@ -161,11 +180,11 @@ def chat_with_gemini(message: str) -> str:
     except Exception as e:
         return f"Gemini API 호출 중 오류가 발생했습니다: {str(e)}"
 
-def process_video_generation(prompt: str, task_uuid: str):
+def process_video_generation(prompt: str, task_uuid: str, mode: str = 'text', image_url: str = None):
     """비디오 생성을 백그라운드에서 처리하는 함수"""
     tasks[task_uuid]['status'] = 'submitting'
     
-    task_id = invoke_video_generation(prompt)
+    task_id = invoke_video_generation(prompt, mode, image_url)
     if not task_id:
         tasks[task_uuid]['status'] = 'failed'
         return
@@ -192,20 +211,27 @@ def index():
 def generate_video():
     data = request.get_json()
     prompt = data.get('prompt', '')
+    mode = data.get('mode', 'text')
+    image_url = data.get('image_url', '')
     
     if not prompt.strip():
         return jsonify({'error': '프롬프트를 입력해주세요.'}), 400
+    
+    if mode == 'image' and not image_url:
+        return jsonify({'error': '이미지 URL을 입력해주세요.'}), 400
     
     # 고유한 작업 ID 생성
     task_uuid = str(uuid.uuid4())
     tasks[task_uuid] = {
         'status': 'starting',
         'prompt': prompt,
+        'mode': mode,
+        'image_url': image_url if mode == 'image' else None,
         'created_at': datetime.now().isoformat()
     }
     
     # 백그라운드에서 비디오 생성 시작
-    thread = threading.Thread(target=process_video_generation, args=(prompt, task_uuid))
+    thread = threading.Thread(target=process_video_generation, args=(prompt, task_uuid, mode, image_url))
     thread.daemon = True
     thread.start()
     
@@ -213,6 +239,39 @@ def generate_video():
         'task_id': task_uuid,
         'message': '비디오 생성이 시작되었습니다.'
     })
+
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    """이미지 업로드 처리"""
+    if 'image' not in request.files:
+        return jsonify({'error': '이미지 파일이 없습니다.'}), 400
+    
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'error': '파일이 선택되지 않았습니다.'}), 400
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{timestamp}_{filename}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        # 서버 URL 생성 (실제 배포 시에는 실제 도메인으로 변경 필요)
+        image_url = f"http://localhost:5000/uploads/{filename}"
+        
+        return jsonify({
+            'success': True,
+            'image_url': image_url,
+            'filename': filename
+        })
+    
+    return jsonify({'error': '지원하지 않는 파일 형식입니다.'}), 400
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    """업로드된 이미지 파일 제공"""
+    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
 @app.route('/status/<task_id>')
 def get_status(task_id):

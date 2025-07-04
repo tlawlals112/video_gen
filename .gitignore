@@ -1,0 +1,78 @@
+# Python 관련 파일
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 가상환경
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE 관련
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 운영체제 관련
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 프로젝트 특정 파일
+app.py
+gen_cam_move.py
+gen_vid.py
+
+# 비디오 파일
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+
+# 이미지 파일 (업로드된 파일들)
+uploads/*
+!uploads/.gitkeep
+output/*
+!output/.gitkeep
+
+# 로그 파일
+*.log
+
+# 환경 변수 파일
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# API 키 파일
+config.py
+secrets.py 

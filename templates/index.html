@@ -382,15 +382,43 @@
         <div class="container">
             <div class="header">
                 <h1>AI 비디오 생성기</h1>
-                <p>텍스트를 입력하고 AI가 비디오를 생성해드립니다</p>
+                <p>텍스트 또는 이미지를 입력하고 AI가 비디오를 생성해드립니다</p>
             </div>
 
-            <form id="videoForm">
+            <form id="videoForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>모드 선택:</label>
+                    <label><input type="radio" name="mode" value="text" checked> Text to Video</label>
+                    <label><input type="radio" name="mode" value="image"> Image to Video</label>
+                </div>
+                <div class="form-group" id="imageInputGroup" style="display:none;">
+                    <label for="image">이미지 업로드 또는 URL 입력:</label>
+                    <input type="file" id="image" name="image" accept="image/*">
+                    <input type="text" id="imageUrl" name="imageUrl" placeholder="이미지 URL (선택)">
+                </div>
                 <div class="form-group">
                     <label for="prompt">비디오 설명을 입력하세요:</label>
-                    <textarea id="prompt" name="prompt" placeholder="예: 고급 레스토랑에서 사람이 팔과 다리가 있는 물고기 같은 생물을 간식으로 먹고 있는 모습. 다른 우아하게 차려입은 손님들은 전혀 신경 쓰지 않고 자신의 접시에서 동일한 물고기 괴물을 차분히 먹고 있다. [Pan right], [Zoom in]" required></textarea>
+                    <textarea id="prompt" name="prompt" placeholder="예: 고급 레스토랑에서 사람이 팔과 다리가 있는 물고기 같은 생물을 간식으로 먹고 있는 모습..." required></textarea>
                 </div>
-
+                <div class="form-group">
+                    <label for="model">모델 선택:</label>
+                    <select id="model" name="model">
+                        <option value="MiniMax-Hailuo-02">MiniMax-Hailuo-02</option>
+                        <option value="video-01">MiniMax-Video-01</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="duration">비디오 길이(초):</label>
+                    <input type="number" id="duration" name="duration" min="2" max="6" value="6">
+                </div>
+                <div class="form-group">
+                    <label for="resolution">해상도:</label>
+                    <select id="resolution" name="resolution">
+                        <option value="1080P">1080P</option>
+                        <option value="720P">720P</option>
+                        <option value="768P">768P</option>
+                    </select>
+                </div>
                 <button type="submit" class="button" id="generateBtn">
                     <span id="btnText">비디오 생성하기</span>
                     <span id="btnSpinner" class="loading-spinner" style="display: none;"></span>
@@ -593,24 +621,54 @@
             }
         });
 
+        // 모드 선택에 따라 이미지 입력란 표시
+        document.querySelectorAll('input[name="mode"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'image') {
+                    document.getElementById('imageInputGroup').style.display = '';
+                } else {
+                    document.getElementById('imageInputGroup').style.display = 'none';
+                }
+            });
+        });
+
         document.getElementById('videoForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            const mode = document.querySelector('input[name="mode"]:checked').value;
             const prompt = document.getElementById('prompt').value.trim();
+            const model = document.getElementById('model').value;
+            const duration = parseInt(document.getElementById('duration').value);
+            const resolution = document.getElementById('resolution').value;
+            let imageFile = document.getElementById('image').files[0];
+            let imageUrl = document.getElementById('imageUrl').value.trim();
+
             if (!prompt) {
                 alert('프롬프트를 입력해주세요.');
+                return;
+            }
+            if (mode === 'image' && !imageFile && !imageUrl) {
+                alert('이미지 파일을 업로드하거나 이미지 URL을 입력해주세요.');
                 return;
             }
 
             updateButtonState(true);
             hideStatus();
 
+            const formData = new FormData();
+            formData.append('mode', mode);
+            formData.append('prompt', prompt);
+            formData.append('model', model);
+            formData.append('duration', duration);
+            formData.append('resolution', resolution);
+            if (mode === 'image') {
+                if (imageFile) formData.append('image', imageFile);
+                if (imageUrl) formData.append('imageUrl', imageUrl);
+            }
+
             fetch('/generate', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ prompt: prompt })
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
@@ -619,16 +677,11 @@
                     updateButtonState(false);
                     return;
                 }
-
                 currentTaskId = data.task_id;
                 showStatus('비디오 생성이 시작되었습니다...', 'processing');
-                
-                // 상태 확인 시작
                 statusCheckInterval = setInterval(() => {
                     checkStatus(currentTaskId);
-                }, 5000); // 5초마다 상태 확인
-                
-                // 즉시 첫 번째 상태 확인
+                }, 5000);
                 checkStatus(currentTaskId);
             })
             .catch(error => {
